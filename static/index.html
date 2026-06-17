@@ -1,0 +1,1523 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Threat Intelligence Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Automated Threat Intelligence lookup service utilizing VirusTotal, AlienVault OTX, and WHOIS." />
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-main: #0b0d13;
+      --bg-card: #121620;
+      --bg-input: #181d2a;
+      --border-color: #232a3d;
+      --border-focus: #00f0ff;
+      --text-main: #f1f5f9;
+      --text-muted: #8295b9;
+      
+      --color-safe: #00f5a0;
+      --color-warn: #ffb800;
+      --color-danger: #ff3860;
+      --color-info: #00f0ff;
+      
+      --glow-safe: rgba(0, 245, 160, 0.15);
+      --glow-warn: rgba(255, 184, 0, 0.15);
+      --glow-danger: rgba(255, 56, 96, 0.15);
+      --glow-info: rgba(0, 240, 255, 0.15);
+      
+      --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+    }
+
+    header {
+      background: linear-gradient(180deg, rgba(18, 22, 32, 0.8) 0%, rgba(18, 22, 32, 0) 100%);
+      border-bottom: 1px solid var(--border-color);
+      backdrop-filter: blur(12px);
+      padding: 1.5rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-logo {
+      width: 2.25rem;
+      height: 2.25rem;
+      background: linear-gradient(135deg, var(--color-info) 0%, #7000ff 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: white;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+    }
+
+    .brand h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      background: linear-gradient(90deg, #fff 0%, var(--text-muted) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .api-status {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.75rem;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      background-color: rgba(24, 29, 42, 0.6);
+      border: 1px solid var(--border-color);
+      padding: 0.25rem 0.6rem;
+      border-radius: 100px;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--text-muted);
+    }
+
+    .status-dot.active {
+      background-color: var(--color-safe);
+      box-shadow: 0 0 8px var(--color-safe);
+    }
+
+    main {
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .hero-section {
+      text-align: center;
+      max-width: 700px;
+      margin: 1rem auto 0.5rem auto;
+    }
+
+    .hero-section h2 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+    }
+
+    .hero-section p {
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+
+    .search-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .search-row {
+      display: flex;
+      gap: 0.75rem;
+      position: relative;
+    }
+
+    .input-wrapper {
+      flex: 1;
+      position: relative;
+    }
+
+    .input-wrapper input {
+      width: 100%;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      font-size: 1rem;
+      color: white;
+      font-family: inherit;
+      outline: none;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .input-wrapper input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+    }
+
+    .btn-search {
+      background: linear-gradient(135deg, #00f0ff 0%, #0072ff 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 0 1.75rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: opacity var(--transition-fast), transform var(--transition-fast);
+      box-shadow: 0 4px 15px rgba(0, 240, 255, 0.25);
+    }
+
+    .btn-search:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    .btn-search:active {
+      transform: translateY(1px);
+    }
+
+    .btn-search:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-refresh {
+      background-color: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0 1.25rem;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: all var(--transition-fast);
+    }
+
+    .btn-refresh:hover {
+      color: white;
+      background-color: rgba(255, 255, 255, 0.05);
+      border-color: var(--text-muted);
+    }
+
+    .examples-row {
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .examples-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-right: 0.25rem;
+    }
+
+    .example-btn {
+      background-color: rgba(24, 29, 42, 0.8);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all var(--transition-fast);
+    }
+
+    .example-btn:hover {
+      border-color: var(--color-info);
+      color: var(--color-info);
+    }
+
+    .dashboard-layout {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 2rem;
+      opacity: 0;
+      transform: translateY(15px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .dashboard-layout.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .panel-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.5rem;
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .risk-score-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      padding: 1rem 0;
+    }
+
+    .radial-gauge {
+      width: 160px;
+      height: 160px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gauge-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .gauge-track {
+      fill: none;
+      stroke: var(--bg-input);
+      stroke-width: 10;
+    }
+
+    .gauge-fill {
+      fill: none;
+      stroke: var(--color-safe);
+      stroke-width: 10;
+      stroke-linecap: round;
+      stroke-dasharray: 440;
+      stroke-dashoffset: 440;
+      transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s ease;
+    }
+
+    .gauge-text {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .risk-val {
+      font-size: 2.5rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .risk-max {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+    }
+
+    .risk-label {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-top: 1.25rem;
+      letter-spacing: -0.01em;
+    }
+
+    .indicator-meta {
+      margin-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      padding-top: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      width: 100%;
+    }
+
+    .meta-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .meta-lbl {
+      color: var(--text-muted);
+    }
+
+    .meta-val {
+      font-weight: 600;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .meta-val.type-badge {
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-color);
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--color-info);
+      text-transform: uppercase;
+    }
+
+    .meta-val.cache-badge {
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .meta-val.cache-badge.cached {
+      background-color: rgba(0, 240, 255, 0.1);
+      border: 1px solid var(--color-info);
+      color: var(--color-info);
+    }
+
+    .meta-val.cache-badge.fresh {
+      background-color: rgba(0, 245, 160, 0.1);
+      border: 1px solid var(--color-safe);
+      color: var(--color-safe);
+    }
+
+    .quick-status-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .q-status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-color);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+    }
+
+    .q-service {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .q-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .q-result {
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .btn-evict {
+      width: 100%;
+      background-color: rgba(255, 56, 96, 0.05);
+      border: 1px solid rgba(255, 56, 96, 0.2);
+      color: var(--color-danger);
+      padding: 0.6rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+
+    .btn-evict:hover {
+      background-color: rgba(255, 56, 96, 0.1);
+      border-color: var(--color-danger);
+    }
+
+    .content-area {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .tabs-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .tabs-header {
+      background-color: rgba(24, 29, 42, 0.4);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      padding: 1rem 1.5rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all var(--transition-fast);
+    }
+
+    .tab-btn:hover {
+      color: white;
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    .tab-btn.active {
+      color: var(--color-info);
+      border-bottom-color: var(--color-info);
+      background-color: rgba(0, 240, 255, 0.03);
+    }
+
+    .tabs-content {
+      padding: 1.5rem;
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .sub-card {
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    th {
+      text-align: left;
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 0.6rem 0.8rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 0.6rem 0.8rem;
+      border-bottom: 1px solid rgba(35, 42, 61, 0.4);
+      color: var(--text-main);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .vt-stat-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .vt-stat-lbl-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .vt-progress-track {
+      height: 6px;
+      background-color: var(--bg-card);
+      border-radius: 100px;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .vt-progress-fill {
+      height: 100%;
+      border-radius: 100px;
+      width: 0;
+      transition: width 0.6s ease;
+    }
+
+    .badge-raw {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      background-color: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      margin-right: 0.3rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .badge-raw.cyan {
+      color: var(--color-info);
+      background-color: rgba(0, 240, 255, 0.05);
+      border-color: rgba(0, 240, 255, 0.15);
+    }
+
+    .pulses-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      max-height: 400px;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+
+    .pulse-item {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      transition: border-color var(--transition-fast);
+    }
+
+    .pulse-item:hover {
+      border-color: var(--text-muted);
+    }
+
+    .pulse-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.5rem;
+    }
+
+    .pulse-name {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .pulse-meta {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-align: right;
+    }
+
+    .pulse-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+      line-height: 1.4;
+    }
+
+    .pulse-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .raw-json {
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: #a5b4fc;
+      overflow: auto;
+      max-height: 600px;
+      white-space: pre-wrap;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 3rem 1.5rem;
+      color: var(--text-muted);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+    }
+
+    .no-data-icon {
+      font-size: 2rem;
+      margin-bottom: 0.75rem;
+      opacity: 0.5;
+    }
+
+    .loading-pane {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 6rem 1.5rem;
+      text-align: center;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(0, 240, 255, 0.1);
+      border-top-color: var(--color-info);
+      border-radius: 50%;
+      animation: spin 0.8s infinite linear;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+    }
+
+    .loading-text {
+      font-weight: 500;
+      font-size: 1rem;
+      color: var(--text-muted);
+    }
+
+    .error-card {
+      display: none;
+      background-color: rgba(255, 56, 96, 0.05);
+      border: 1px solid rgba(255, 56, 96, 0.2);
+      border-radius: 12px;
+      padding: 1.25rem;
+      color: var(--color-danger);
+      font-weight: 500;
+      font-size: 0.9rem;
+      align-items: center;
+      gap: 0.75rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .error-icon {
+      font-weight: 700;
+      font-size: 1.25rem;
+      background-color: rgba(255, 56, 96, 0.1);
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Scrollbars customization */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-main);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* Animations */
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    .external-link {
+      color: var(--color-info);
+      text-decoration: none;
+      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      transition: text-decoration var(--transition-fast);
+    }
+
+    .external-link:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard-layout {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      .sidebar > * {
+        flex: 1;
+        min-width: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-logo">TI</div>
+        <div>
+          <h1>Threat Intelligence</h1>
+        </div>
+      </div>
+      <div class="api-status">
+        <div class="status-badge">
+          <div class="status-dot" id="dot-vt"></div>
+          VirusTotal
+        </div>
+        <div class="status-badge">
+          <div class="status-dot" id="dot-otx"></div>
+          AlienVault OTX
+        </div>
+        <div class="status-badge">
+          <div class="status-dot" id="dot-redis"></div>
+          Redis Cache
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero-section">
+      <h2>Indicator Intelligence</h2>
+      <p>Automated reputation analyzer and aggregator for IP addresses, domain names, URLs, and file hashes</p>
+    </div>
+
+    <!-- Lookup Form -->
+    <div class="search-card">
+      <div class="search-row">
+        <div class="input-wrapper">
+          <input id="indicator-input" type="text" placeholder="Paste IP, Domain, URL, or File Hash (MD5/SHA1/SHA256)" />
+        </div>
+        <button id="btn-lookup" class="btn-search">
+          <span>Analyze</span>
+        </button>
+        <button id="btn-force" class="btn-refresh" title="Bypass cache and fetch live values">Force Refresh</button>
+      </div>
+
+      <div class="examples-row">
+        <span class="examples-label">Examples:</span>
+        <button class="example-btn" data-val="https://www.google.com">google.com (URL)</button>
+        <button class="example-btn" data-val="8.8.8.8">8.8.8.8 (IP)</button>
+        <button class="example-btn" data-val="github.com">github.com (Domain)</button>
+        <button class="example-btn" data-val="275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f">EICAR (Hash)</button>
+      </div>
+    </div>
+
+    <!-- Error Alert Container -->
+    <div id="error-card" class="error-card">
+      <div class="error-icon">!</div>
+      <div id="error-message">Error message details appear here.</div>
+    </div>
+
+    <!-- Loading Pane -->
+    <div id="loading-pane" class="loading-pane">
+      <div class="spinner"></div>
+      <div class="loading-text">Performing aggregation across Threat Intelligence feeds...</div>
+    </div>
+
+    <!-- Idle Empty State -->
+    <div id="idle-pane" class="no-data">
+      <div class="no-data-icon">🔍</div>
+      <h3>Ready for analysis</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">Enter a network indicator above to pull automated intelligence verdicts</p>
+    </div>
+
+    <!-- Main Results Dashboard -->
+    <div id="dashboard" class="dashboard-layout">
+      
+      <!-- Left Sidebar (Risk Score & Meta) -->
+      <div class="sidebar">
+        
+        <!-- Risk Score Card -->
+        <div class="panel-card" style="display: flex; flex-direction: column; align-items: center;">
+          <div class="card-title" style="align-self: flex-start; width: 100%;">Consolidated Risk</div>
+          
+          <div class="risk-score-container">
+            <div class="radial-gauge">
+              <svg class="gauge-svg">
+                <circle class="gauge-track" cx="80" cy="80" r="70" />
+                <circle id="gauge-fill" class="gauge-fill" cx="80" cy="80" r="70" />
+              </svg>
+              <div class="gauge-text">
+                <span id="risk-val" class="risk-val">0</span>
+                <span class="risk-max">score / 100</span>
+              </div>
+            </div>
+            
+            <div id="risk-label" class="risk-label">Analyzing...</div>
+          </div>
+
+          <div class="indicator-meta">
+            <div class="meta-item">
+              <span class="meta-lbl">Type</span>
+              <span id="meta-type" class="meta-val type-badge">unknown</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">Target</span>
+              <span id="meta-indicator" class="meta-val" title="">-</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">Source</span>
+              <span id="meta-cache" class="meta-val cache-badge fresh">LIVE</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">Queried</span>
+              <span id="meta-time" class="meta-val" style="color: var(--text-muted);">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service Quick-Status Card -->
+        <div class="panel-card">
+          <div class="card-title">Integration Status</div>
+          <div class="quick-status-grid">
+            <div class="q-status-row">
+              <div class="q-service">
+                <div id="q-dot-vt" class="q-indicator" style="background-color: var(--text-muted);"></div>
+                VirusTotal
+              </div>
+              <div id="q-val-vt" class="q-result">Disabled</div>
+            </div>
+            <div class="q-status-row">
+              <div class="q-service">
+                <div id="q-dot-otx" class="q-indicator" style="background-color: var(--text-muted);"></div>
+                AlienVault OTX
+              </div>
+              <div id="q-val-otx" class="q-result">Disabled</div>
+            </div>
+            <div class="q-status-row">
+              <div class="q-service">
+                <div id="q-dot-whois" class="q-indicator" style="background-color: var(--text-muted);"></div>
+                WHOIS Record
+              </div>
+              <div id="q-val-whois" class="q-result">Disabled</div>
+            </div>
+          </div>
+          <div style="margin-top: 1.5rem;">
+            <button id="btn-evict" class="btn-evict">
+              <span>Evict Cache Entry</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Panel Area (Tabs with detailed views) -->
+      <div class="content-area">
+        
+        <div class="tabs-card">
+          <div class="tabs-header">
+            <button class="tab-btn active" data-tab="tab-summary">Summary Overview</button>
+            <button class="tab-btn" data-tab="tab-vt">VirusTotal</button>
+            <button class="tab-btn" data-tab="tab-otx">AlienVault OTX</button>
+            <button class="tab-btn" data-tab="tab-whois">WHOIS</button>
+            <button class="tab-btn" data-tab="tab-raw">Raw JSON</button>
+          </div>
+
+          <div class="tabs-content">
+            
+            <!-- Tab: Summary Overview -->
+            <div id="tab-summary" class="tab-pane active">
+              <div class="results-grid">
+                
+                <div class="sub-card full-width">
+                  <div class="section-title">🛡️ Consolidated Findings</div>
+                  <p id="summary-narrative" style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.6;">
+                    No security alerts identified for this target. All reporting sources list this host or file as clean or clean-standing.
+                  </p>
+                </div>
+
+                <div class="sub-card">
+                  <div class="section-title" style="margin-bottom: 0.75rem;">VirusTotal Stats</div>
+                  <div id="summary-vt-stats" style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                    <div style="text-align: center; color: var(--text-muted); padding: 1rem 0;">No VT statistics found</div>
+                  </div>
+                </div>
+
+                <div class="sub-card">
+                  <div class="section-title" style="margin-bottom: 0.75rem;">AlienVault Pulse Count</div>
+                  <div style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                    <div style="font-size: 2.25rem; font-weight: 800; text-align: center;" id="summary-otx-pulses">0</div>
+                    <div style="font-size: 0.75rem; text-align: center; color: var(--text-muted); margin-top: 0.25rem;">Pulses referencing this indicator</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Tab: VirusTotal Details -->
+            <div id="tab-vt" class="tab-pane">
+              <div class="results-grid">
+                <div class="sub-card" id="vt-details-col1">
+                  <div class="section-title">Verdict Metrics</div>
+                  <div id="vt-verdicts-bars">
+                    <!-- Dynamic Progress bars -->
+                  </div>
+                </div>
+                <div class="sub-card" id="vt-details-col2">
+                  <div class="section-title">Detection Details</div>
+                  <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                    <div class="meta-item">
+                      <span class="meta-lbl">Reputation Score</span>
+                      <span id="vt-reputation" class="meta-val">-</span>
+                    </div>
+                    <div class="meta-item">
+                      <span class="meta-lbl">Tags</span>
+                      <span id="vt-tags" style="word-wrap: break-word; text-align: right; max-width: 220px;">-</span>
+                    </div>
+                    <div class="meta-item">
+                      <span class="meta-lbl">Reference Link</span>
+                      <span id="vt-permalink-container"></span>
+                    </div>
+                  </div>
+                </div>
+                <div class="sub-card full-width">
+                  <div class="section-title">Malicious Vendor Reports (Max 25)</div>
+                  <div class="table-container">
+                    <table id="vt-vendors-table">
+                      <thead>
+                        <tr>
+                          <th>Security Engine</th>
+                          <th>Result Verdict</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td colspan="2" style="text-align: center; color: var(--text-muted);">No engine reports available</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab: AlienVault OTX Details -->
+            <div id="tab-otx" class="tab-pane">
+              <div class="sub-card full-width" style="margin-bottom: 1.5rem;">
+                <div class="section-title">Alienvault OTX Pulses</div>
+                <div class="pulses-timeline" id="otx-pulses-list">
+                  <div style="text-align: center; color: var(--text-muted); padding: 2rem 0;">No active threat pulses reference this indicator</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab: WHOIS Details -->
+            <div id="tab-whois" class="tab-pane">
+              <div class="sub-card full-width">
+                <div class="section-title">Domain Registration Data</div>
+                <div class="table-container">
+                  <table>
+                    <tbody id="whois-table-body">
+                      <tr>
+                        <td style="color: var(--text-muted); width: 250px;">Registrar</td>
+                        <td id="whois-registrar">-</td>
+                      </tr>
+                      <tr>
+                        <td style="color: var(--text-muted);">Organization</td>
+                        <td id="whois-org">-</td>
+                      </tr>
+                      <tr>
+                        <td style="color: var(--text-muted);">Country</td>
+                        <td id="whois-country">-</td>
+                      </tr>
+                      <tr>
+                        <td style="color: var(--text-muted);">Creation Date</td>
+                        <td id="whois-created">-</td>
+                      </tr>
+                      <tr>
+                        <td style="color: var(--text-muted);">Expiration Date</td>
+                        <td id="whois-expires">-</td>
+                      </tr>
+                      <tr>
+                        <td style="color: var(--text-muted);">Last Updated Date</td>
+                        <td id="whois-updated">-</td>
+                      </tr>
+                      <tr>
+                        <td style="color: var(--text-muted);">Name Servers</td>
+                        <td id="whois-ns">-</td>
+                      </tr>
+                      <tr>
+                        <td style="color: var(--text-muted);">Contact Emails</td>
+                        <td id="whois-emails">-</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab: Raw JSON -->
+            <div id="tab-raw" class="tab-pane">
+              <pre id="json-render" class="raw-json"></pre>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    
+    // Check Backend Configurations on startup
+    async function checkHealth() {
+      try {
+        const response = await fetch('/health');
+        if (response.ok) {
+          const data = await response.json();
+          updateHealthStatus('dot-vt', data.vt_configured);
+          updateHealthStatus('dot-otx', data.otx_configured);
+          updateHealthStatus('dot-redis', data.redis_configured);
+        }
+      } catch (e) {
+        console.error("Health check failed", e);
+      }
+    }
+
+    function updateHealthStatus(elementId, isConfigured) {
+      const el = $(elementId);
+      if (!el) return;
+      if (isConfigured) {
+        el.classList.add('active');
+        el.parentElement.style.borderColor = 'rgba(0, 245, 160, 0.2)';
+      } else {
+        el.classList.remove('active');
+        el.parentElement.style.borderColor = 'var(--border-color)';
+      }
+    }
+
+    // Tab Navigation Logic
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        
+        btn.classList.add('active');
+        $(btn.dataset.tab).classList.add('active');
+      };
+    });
+
+    // Example Buttons Click Trigger
+    document.querySelectorAll('.example-btn').forEach(btn => {
+      btn.onclick = () => {
+        $('indicator-input').value = btn.dataset.val;
+        executeLookup(false);
+      };
+    });
+
+    // Lookup Execution
+    async function executeLookup(force) {
+      const value = $('indicator-input').value.trim();
+      if (!value) return;
+
+      // Reset state
+      $('error-card').style.display = 'none';
+      $('dashboard').classList.remove('visible');
+      $('idle-pane').style.display = 'none';
+      $('loading-pane').style.display = 'flex';
+      $('btn-lookup').disabled = true;
+
+      try {
+        const r = await fetch('/lookup', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({indicator: value, force_refresh: !!force})
+        });
+
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({detail: r.statusText}));
+          throw new Error(err.detail || 'Lookup request failed');
+        }
+
+        const data = await r.json();
+        renderDashboard(data);
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        $('loading-pane').style.display = 'none';
+        $('btn-lookup').disabled = false;
+      }
+    }
+
+    function showError(msg) {
+      $('error-message').textContent = msg;
+      $('error-card').style.display = 'flex';
+      $('idle-pane').style.display = 'flex';
+    }
+
+    function renderDashboard(d) {
+      // 1. Show dashboard container
+      $('dashboard').classList.add('visible');
+      $('idle-pane').style.display = 'none';
+
+      // 2. Set Meta Details
+      $('meta-indicator').textContent = d.indicator;
+      $('meta-indicator').title = d.indicator;
+      $('meta-type').textContent = d.type;
+      $('meta-time').textContent = new Date(d.queried_at).toLocaleString();
+      
+      const cacheBadge = $('meta-cache');
+      if (d.served_from_cache) {
+        cacheBadge.textContent = 'CACHED';
+        cacheBadge.className = 'meta-val cache-badge cached';
+      } else {
+        cacheBadge.textContent = 'LIVE';
+        cacheBadge.className = 'meta-val cache-badge fresh';
+      }
+
+      // 3. Render Risk Gauge Arc (SVG Circumference ~ 440)
+      const score = d.risk_score ?? 0;
+      $('risk-val').textContent = score;
+
+      const fill = $('gauge-fill');
+      const offset = 440 - (440 * score) / 100;
+      fill.style.strokeDashoffset = offset;
+
+      let riskColor = 'var(--color-safe)';
+      let riskGlow = 'var(--glow-safe)';
+      let riskLabel = 'Low Risk';
+
+      if (score > 60) {
+        riskColor = 'var(--color-danger)';
+        riskGlow = 'var(--glow-danger)';
+        riskLabel = 'High Risk Alert';
+      } else if (score >= 25) {
+        riskColor = 'var(--color-warn)';
+        riskGlow = 'var(--glow-warn)';
+        riskLabel = 'Medium Suspicious';
+      }
+
+      fill.style.stroke = riskColor;
+      $('risk-val').style.color = riskColor;
+      $('risk-label').textContent = riskLabel;
+      $('risk-label').style.color = riskColor;
+      $('gauge-fill').style.filter = `drop-shadow(0 0 4px ${riskColor})`;
+
+      // 4. Quick integration summaries
+      const vt = d.results?.virustotal || {};
+      const otx = d.results?.alienvault || {};
+      const whois = d.results?.whois || {};
+
+      renderQuickStatus('vt', vt);
+      renderQuickStatus('otx', otx);
+      renderQuickStatus('whois', whois);
+
+      // 5. Narrative summary card
+      let summaryText = `All integrated search vectors reported clean findings. The target does not correspond to active campaigns or blacklist feeds.`;
+      
+      if (score > 60) {
+        summaryText = `CRITICAL WARNING: This indicator has a high confidence malicious rating (${score}/100). Aggregated verdicts from VirusTotal and AlienVault OTX pulse alerts strongly recommend blocking or isolating communications.`;
+      } else if (score >= 25) {
+        summaryText = `SUSPICIOUS ALERT: This indicator displays intermediate threat signals. Review engine findings and check context tags (like phishing, spam, or adware) to inspect malicious vendor feedback.`;
+      }
+      $('summary-narrative').textContent = summaryText;
+
+      // VT Summary mini chart
+      const vtStatsContainer = $('summary-vt-stats');
+      if (vt.enabled && vt.found && vt.stats) {
+        const mal = vt.stats.malicious || 0;
+        const susp = vt.stats.suspicious || 0;
+        const harmless = vt.stats.harmless || 0;
+        const total = mal + susp + harmless;
+        vtStatsContainer.innerHTML = `
+          <div style="font-size: 1.75rem; font-weight: 800; text-align: center; color: ${mal > 0 ? 'var(--color-danger)' : 'var(--color-safe)'}">
+            ${mal} / ${total}
+          </div>
+          <div style="font-size: 0.75rem; text-align: center; color: var(--text-muted); margin-top: 0.25rem;">
+            Detections on VirusTotal
+          </div>
+        `;
+      } else {
+        vtStatsContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 1rem 0;">No VT statistics found</div>`;
+      }
+
+      // OTX Summary pulse
+      $('summary-otx-pulses').textContent = otx.pulse_count ?? 0;
+      $('summary-otx-pulses').style.color = (otx.pulse_count || 0) > 0 ? 'var(--color-warn)' : 'var(--color-safe)';
+
+      // 6. Detailed VirusTotal Tab
+      const vtBars = $('vt-verdicts-bars');
+      vtBars.innerHTML = '';
+      if (vt.enabled && vt.found && vt.stats) {
+        const stats = vt.stats;
+        const total = Object.values(stats).reduce((a, b) => a + b, 0) || 1;
+        
+        const metrics = [
+          { key: 'malicious', color: 'var(--color-danger)' },
+          { key: 'suspicious', color: 'var(--color-warn)' },
+          { key: 'harmless', color: 'var(--color-safe)' },
+          { key: 'undetected', color: 'var(--text-muted)' }
+        ];
+
+        metrics.forEach(m => {
+          const val = stats[m.key] || 0;
+          const pct = ((val / total) * 100).toFixed(1);
+          vtBars.innerHTML += `
+            <div class="vt-stat-bar">
+              <div class="vt-stat-lbl-row">
+                <span style="text-transform: capitalize;">${m.key}</span>
+                <span>${val} (${pct}%)</span>
+              </div>
+              <div class="vt-progress-track">
+                <div class="vt-progress-fill" style="width: ${pct}%; background-color: ${m.color}"></div>
+              </div>
+            </div>
+          `;
+        });
+
+        $('vt-reputation').textContent = vt.reputation ?? 0;
+        
+        const tags = vt.tags || [];
+        $('vt-tags').innerHTML = tags.length > 0 
+          ? tags.map(t => `<span class="badge-raw">${t}</span>`).join('') 
+          : 'None';
+        
+        $('vt-permalink-container').innerHTML = vt.permalink 
+          ? `<a href="${vt.permalink}" target="_blank" class="external-link">View VT Graph ↗</a>` 
+          : '-';
+
+        // Render VT Vendor verdicts table
+        const vtTableBody = document.querySelector('#vt-vendors-table tbody');
+        vtTableBody.innerHTML = '';
+        const vendors = vt.malicious_vendors || [];
+        if (vendors.length > 0) {
+          vendors.forEach(v => {
+            vtTableBody.innerHTML += `
+              <tr>
+                <td style="font-weight: 600;">${v.vendor}</td>
+                <td><span class="badge-raw cyan">${v.result}</span></td>
+              </tr>
+            `;
+          });
+        } else {
+          vtTableBody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No malicious reports found</td></tr>`;
+        }
+      } else {
+        const errorMsg = vt.error ? `VirusTotal Error: ${vt.error}` : 'VT data unavailable or indicator not found';
+        vtBars.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 2rem 0;">${errorMsg}</div>`;
+        $('vt-reputation').textContent = '-';
+        $('vt-tags').textContent = '-';
+        $('vt-permalink-container').innerHTML = '-';
+        document.querySelector('#vt-vendors-table tbody').innerHTML = `<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No engine reports available</td></tr>`;
+      }
+
+      // 7. AlienVault Tab
+      const pulsesList = $('otx-pulses-list');
+      pulsesList.innerHTML = '';
+      const pulses = otx.pulses || [];
+      if (otx.enabled && otx.found && pulses.length > 0) {
+        pulses.forEach(p => {
+          const tagsHtml = (p.tags || []).map(t => `<span class="badge-raw">${t}</span>`).join('');
+          const dateStr = p.created ? new Date(p.created).toLocaleDateString() : 'Unknown';
+          pulsesList.innerHTML += `
+            <div class="pulse-item">
+              <div class="pulse-header">
+                <div class="pulse-name">${p.name || 'Unnamed Pulse'}</div>
+                <div class="pulse-meta">
+                  <div>Adversary: <strong>${p.adversary || 'Generic'}</strong></div>
+                  <div>Created: ${dateStr}</div>
+                </div>
+              </div>
+              <div class="pulse-desc">${p.description || 'No description available for this pulse.'}</div>
+              <div class="pulse-tags">${tagsHtml}</div>
+            </div>
+          `;
+        });
+      } else {
+        const errorMsg = otx.error ? `AlienVault Error: ${otx.error}` : 'No active threat pulses reference this indicator';
+        pulsesList.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 3rem 0;">${errorMsg}</div>`;
+      }
+
+      // 8. WHOIS Tab
+      const whoisTable = $('whois-table-body');
+      if (whois.enabled && whois.found) {
+        $('whois-registrar').textContent = whois.registrar || '-';
+        $('whois-org').textContent = whois.org || '-';
+        $('whois-country').textContent = whois.country || '-';
+        $('whois-created').textContent = whois.creation_date || '-';
+        $('whois-expires').textContent = whois.expiration_date || '-';
+        $('whois-updated').textContent = whois.updated_date || '-';
+        
+        const nsVal = whois.name_servers;
+        $('whois-ns').innerHTML = Array.isArray(nsVal) ? nsVal.map(n => `<div>${n}</div>`).join('') : (nsVal || '-');
+        
+        const emailVal = whois.emails;
+        $('whois-emails').innerHTML = Array.isArray(emailVal) ? emailVal.map(e => `<div>${e}</div>`).join('') : (emailVal || '-');
+      } else {
+        // Reset whois fields
+        ['registrar', 'org', 'country', 'created', 'expires', 'updated', 'ns', 'emails'].forEach(suffix => {
+          $(`whois-${suffix}`).textContent = '-';
+        });
+        if (whois.error) {
+          $('whois-registrar').textContent = `Unavailable: ${whois.error}`;
+        }
+      }
+
+      // 9. Raw JSON rendering
+      $('json-render').textContent = JSON.stringify(d, null, 2);
+
+      // Cache Eviction button setup
+      $('btn-evict').onclick = async () => {
+        try {
+          const evictRes = await fetch(`/cache/${d.type}/${encodeURIComponent(d.indicator)}`, {
+            method: 'DELETE'
+          });
+          if (evictRes.ok) {
+            const evictData = await evictRes.json();
+            if (evictData.deleted) {
+              alert(`Successfully evicted cache for indicator: ${d.indicator}`);
+              executeLookup(false); // reload
+            } else {
+              alert(`Indicator cache not found or already deleted.`);
+            }
+          }
+        } catch (err) {
+          alert(`Failed to evict cache: ${err.message}`);
+        }
+      };
+    }
+
+    function renderQuickStatus(prefix, data) {
+      const dot = $(`q-dot-${prefix}`);
+      const val = $(`q-val-${prefix}`);
+      if (!dot || !val) return;
+
+      if (!data.enabled) {
+        dot.style.backgroundColor = 'var(--text-muted)';
+        val.textContent = data.error || 'Disabled';
+        val.style.color = 'var(--text-muted)';
+      } else if (data.error) {
+        dot.style.backgroundColor = 'var(--color-danger)';
+        val.textContent = 'Error';
+        val.style.color = 'var(--color-danger)';
+        val.title = data.error;
+      } else if (!data.found) {
+        dot.style.backgroundColor = 'var(--color-info)';
+        val.textContent = 'Not Found';
+        val.style.color = 'var(--color-info)';
+      } else {
+        dot.style.backgroundColor = 'var(--color-safe)';
+        val.textContent = 'Verdict Loaded';
+        val.style.color = 'var(--color-safe)';
+      }
+    }
+
+    // Bind event handlers
+    $('btn-lookup').onclick = () => executeLookup(false);
+    $('btn-force').onclick = () => executeLookup(true);
+    
+    $('indicator-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') executeLookup(false);
+    });
+
+    // Start health updates
+    checkHealth();
+  </script>
+</body>
+</html>
