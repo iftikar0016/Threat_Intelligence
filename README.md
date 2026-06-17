@@ -4,6 +4,30 @@ An automated Threat Intelligence lookup service that aggregates indicator reputa
 
 ---
 
+## Architecture Diagram
+
+```mermaid
+graph TD
+    User([User / Browser]) -->|POST /lookup| API[FastAPI App<br/>app/main.py]
+    API --> Det[Indicator Detector<br/>app/detector.py]
+    Det --> Cache{Cache Manager<br/>app/cache.py}
+    
+    Cache -->|Cache HIT| Return[Return Instantly<br/>Served from Cache]
+    Return --> User
+    
+    Cache -->|Cache MISS| Agg[Aggregator Service<br/>app/aggregator.py]
+    
+    Agg --> VT[VirusTotal Service<br/>async httpx]
+    Agg --> OTX[AlienVault Service<br/>async httpx]
+    Agg --> WHOIS[WHOIS Service<br/>asyncio.to_thread]
+    
+    VT --> VT_API[VirusTotal API]
+    OTX --> OTX_API[OTX API]
+    WHOIS --> WHOIS_API[WHOIS/RDAP Servers]
+```
+
+---
+
 ## Features
 
 - **Automated Indicator Detection**: Detects whether an input is a **URL**, **IP Address**, **Domain Name**, or **File Hash** (MD5, SHA-1, SHA-256).
