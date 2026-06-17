@@ -105,9 +105,20 @@ Verifies backend configuration state and cache availability.
 
 ---
 
-## Caching Flow Details
+## How Caching Works
 
-1. A user submits an indicator (e.g. `google.com`).
-2. The server creates a unique cache key based on the indicator type and normalized value: `ti:domain:google.com`.
-3. If the cache exists and TTL (configured by `CACHE_TTL_SECONDS` in `.env`, default 1 hour) has not expired, the server returns the cached document instantly with `"served_from_cache": true`.
-4. If the cache misses or the user sets `force_refresh: true`, the aggregator executes parallel lookups, updates the cache, and returns `"served_from_cache": false`.
+Here is exactly how the caching scenario is handled:
+
+1. **First Query (Cache Miss)**: 
+   * **User A** submits a link (e.g., `https://example.com`).
+   * The service checks the cache and finds no record.
+   * It queries **VirusTotal**, **AlienVault OTX**, and **WHOIS** in parallel.
+   * It normalizes the data, saves it to the cache with a 1-hour expiration timer, and returns the result with `"served_from_cache": false`.
+
+2. **Subsequent Query (Cache Hit)**:
+   * **User B** submits the exact same link `https://example.com` a minute later.
+   * The service checks the cache and finds the pre-computed document.
+   * It **instantly** returns the cached data without making any external network requests.
+   * The browser receives the results in milliseconds with `"served_from_cache": true`.
+
+*(Note: Users can click the **Force Refresh** button in the dashboard or pass `"force_refresh": true` to bypass the cache and force a live update).*
